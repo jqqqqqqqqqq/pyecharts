@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import random
 import types
 
+import pyecharts.configuration as option
 
 fs = []
 SYMBOLS = ('rect', 'roundRect', 'triangle', 'diamond', 'pin', 'arrow')
@@ -67,34 +68,26 @@ def label(
         高亮标签字体大小，默认为 12
     :param kwargs:
     """
-    if label_pos is None:
-        label_pos = "outside" if type in ["pie", "graph"] else "top"
     _label = {
-        "normal": {
-            "show": is_label_show,
-            "position": label_pos,
-            "textStyle": {
-                "color": label_text_color, "fontSize": label_text_size
-            },
-        },
-        "emphasis": {
-            "show": is_label_emphasis,
-            "position": label_emphasis_pos,
-            "textStyle": {
-                "color": label_emphasis_textcolor,
-                "fontSize": label_emphasis_textsize,
-            },
-        },
+        "normal": option.Label(
+            is_label_show,
+            label_pos,
+            label_text_color,
+            label_text_size,
+            formatter=label_formatter,
+            chart_type=type,
+            chart_instance=chart_instance,
+        ),
+        "emphasis": option.Label(
+            is_label_emphasis,
+            label_emphasis_pos,
+            label_emphasis_textcolor,
+            label_emphasis_textsize,
+            chart_type=type,
+            chart_instance=chart_instance,
+        ),
     }
 
-    _tmp_formatter = label_formatter
-    if label_formatter is None:
-        if type == "pie":
-            _tmp_formatter = "{b}: {d}%"
-    elif isinstance(label_formatter, types.FunctionType):
-        _tmp_formatter = chart_instance._add_a_python_function(label_formatter)
-    if type != "graph":
-        _label.get("normal").update(formatter=_tmp_formatter)
     return _label
 
 
@@ -150,13 +143,14 @@ def line_style(
         line_color = '#aaa'
 
     _line_style = {
-        "normal": {
-            "width": line_width,
-            "opacity": line_opacity,
-            "curveness": line_curve,
-            "type": line_type,
-            "color": line_color,
-        }
+        "normal": option.Line(
+            line_width,
+            line_opacity,
+            line_curve,
+            line_type,
+            line_color,
+            chart_type=type,
+        )
     }
     return _line_style
 
@@ -376,84 +370,61 @@ def xy_axis(
         是否显示 y 轴网格线，默认为 True。
     :param kwargs:
     """
-    if isinstance(xaxis_formatter, types.FunctionType):
-        xaxis_formatter = chart_instance._add_a_python_function(
-            xaxis_formatter
-        )
-
-    if isinstance(yaxis_formatter, types.FunctionType):
-        yaxis_formatter = chart_instance._add_a_python_function(
-            yaxis_formatter
-        )
-    else:
-        yaxis_formatter = "{value} " + yaxis_formatter
-
-    _xAxis = {
-        "name": xaxis_name,
-        "show": is_xaxis_show,
-        "nameLocation": xaxis_name_pos,
-        "nameGap": xaxis_name_gap,
-        "nameTextStyle": {"fontSize": xaxis_name_size},
-        "axisLabel": {
-            "interval": xaxis_interval,
-            "formatter": xaxis_formatter,
-            "rotate": xaxis_rotate,
-            "margin": xaxis_margin,
-            "textStyle": {
-                "fontSize": xaxis_label_textsize,
-                "color": xaxis_label_textcolor,
-            },
-        },
-        "axisTick": {"alignWithLabel": is_xaxislabel_align},
-        "inverse": is_xaxis_inverse,
-        "position": xaxis_pos,
-        "boundaryGap": is_xaxis_boundarygap,
-        "min": xaxis_min,
-        "max": xaxis_max,
-    }
-    _yAxis = {
-        "name": yaxis_name,
-        "show": is_yaxis_show,
-        "nameLocation": yaxis_name_pos,
-        "nameGap": yaxis_name_gap,
-        "nameTextStyle": {"fontSize": yaxis_name_size},
-        "axisLabel": {
-            "formatter": yaxis_formatter,
-            "rotate": yaxis_rotate,
-            "interval": yaxis_interval,
-            "margin": yaxis_margin,
-            "textStyle": {
-                "fontSize": yaxis_label_textsize,
-                "color": yaxis_label_textcolor,
-            },
-        },
-        "axisTick": {"alignWithLabel": is_yaxislabel_align},
-        "inverse": is_yaxis_inverse,
-        "position": yaxis_pos,
-        "boundaryGap": is_yaxis_boundarygap,
-        "min": yaxis_min,
-        "max": yaxis_max,
-        "splitLine": {"show": is_splitline_show},
-    }
-
-    if xaxis_type is None:
-        xaxis_type = "value" if type == "scatter" else "category"
-    if yaxis_type is None:
-        yaxis_type = "value"
+    _xAxis = option.XAxis(
+        xaxis_name,
+        is_xaxis_show,
+        xaxis_name_pos,
+        xaxis_name_gap,
+        xaxis_name_size,
+        xaxis_pos,
+        is_xaxis_boundarygap,
+        is_xaxislabel_align,
+        is_xaxis_inverse,
+        value_range=[xaxis_min, xaxis_max],
+    )
+    _xAxis["axisLabel"] = option.XAxisLabel(
+        xaxis_interval,
+        xaxis_formatter,
+        xaxis_rotate,
+        xaxis_margin,
+        xaxis_label_textsize,
+        xaxis_label_textcolor,
+    )
+    _yAxis = option.YAxis(
+        yaxis_name,
+        is_yaxis_show,
+        yaxis_name_pos,
+        yaxis_name_gap,
+        yaxis_name_size,
+        is_yaxislabel_align,
+        is_yaxis_inverse,
+        yaxis_pos,
+        is_yaxis_boundarygap,
+        value_range=[yaxis_min, yaxis_max],
+        split_line=is_splitline_show,
+    )
+    _yAxis["axisLabel"] = option.YAxisLabel(
+        yaxis_interval,
+        yaxis_formatter,
+        yaxis_rotate,
+        yaxis_margin,
+        yaxis_label_textsize,
+        yaxis_label_textcolor,
+    )
 
     if is_convert:
         xaxis_type, yaxis_type = yaxis_type, xaxis_type
-        _xAxis.update(type=xaxis_type)
-        _yAxis.update(data=x_axis, type=yaxis_type)
+        _xAxis.config.update(type=xaxis_type)
+        _yAxis.config.update(data=x_axis, type=yaxis_type)
     else:
-        _xAxis.update(data=x_axis, type=xaxis_type)
-        _yAxis.update(type=yaxis_type)
+        _xAxis.config.update(data=x_axis, type=xaxis_type)
+        _yAxis.config.update(type=yaxis_type)
 
     # 强制分割数值轴，在多 x、y 轴中可以使用强制分割使标刻线对齐
     if xaxis_force_interval is not None:
-        _xAxis.update(interval=xaxis_force_interval)
+        _xAxis.config.update(interval=xaxis_force_interval)
     if yaxis_force_interval is not None:
-        _yAxis.update(interval=yaxis_force_interval)
+        _yAxis.config.update(interval=yaxis_force_interval)
 
     return [_xAxis], [_yAxis]
 
